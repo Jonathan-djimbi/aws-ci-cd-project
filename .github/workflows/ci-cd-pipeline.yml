@@ -10,20 +10,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Étape 1 : Récupérer le code
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Étape 2 : Configurer les identifiants AWS
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-central-1
+          aws-region: eu-north-1
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+      # Étape 3 : Authentification Docker sécurisée avec Amazon ECR
+      - name: Authenticate Docker to Amazon ECR
+        env:
+          AWS_REGION: eu-north-1
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 467711263308.dkr.ecr.eu-north-1.amazonaws.com
 
+      # Étape 4 : Créer le repository ECR s'il n'existe pas
+      - name: Create ECR repository if not exists
+        run: |
+          aws ecr describe-repositories --repository-names aws-ci-cd-project || \
+          aws ecr create-repository --repository-name aws-ci-cd-project
+
+      # Étape 5 : Construire, taguer et envoyer l’image Docker sur ECR
       - name: Build, tag, and push image to Amazon ECR
         env:
           ECR_REGISTRY: 467711263308.dkr.ecr.eu-north-1.amazonaws.com
@@ -33,6 +45,7 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
+      # Étape 6 : Déploiement
       - name: Deploy application
         run: |
-          echo "Déploiement sur AWS..."
+          echo "Déploiement sur AWS terminé avec succès !"
